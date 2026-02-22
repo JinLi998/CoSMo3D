@@ -1,0 +1,6 @@
+# Ignore everything except readme.md and images/
+*
+!.gitignore
+!readme.md
+!images/
+!images/**
