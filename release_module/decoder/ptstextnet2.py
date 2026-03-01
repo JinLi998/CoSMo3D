@@ -140,7 +140,7 @@ class PointCloudTextCanoncolorWodecoderTransformer(BaseModule):
                 text_features: torch.FloatTensor,  # shape: [total_texts, text_feat_dim]
                 offset: torch.LongTensor,  # shape: [batch_size] (point cloud batch end indices)
                 mask_offset: torch.LongTensor  # shape: [batch_size] (text group end indices)
-                ) -> tuple[torch.FloatTensor, torch.FloatTensor, torch.LongTensor, torch.LongTensor, torch.FloatTensor, torch.LongTensor]:  
+                ) :  
         # Returns: (prob output, color output, prob offset, color offset, bbox pred, bbox offset)
         batch_size = offset.size(0)
         device = point_cloud.device

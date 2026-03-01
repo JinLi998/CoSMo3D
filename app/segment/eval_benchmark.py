@@ -214,7 +214,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Single 3DCompat sample evaluation")
     parser.add_argument("--data_path", 
                         type=str, 
-                        default="results/data/coarse_b29_0cb_sample", 
+                        default="data_test/coarse_b29_0cb_sample", 
                         help="Path to single sample (e.g. xxx/coarse_0001)")
     parser.add_argument("--category", 
                         type=str, 
@@ -226,7 +226,7 @@ if __name__ == '__main__':
                         help="Model checkpoint path")
     parser.add_argument("--save_path", 
                         type=str, 
-                        default="results/results/sampling.ply",)
+                        default="results/sampling.ply",)
     parser.add_argument("--net_type", 
                         type=str, 
                         default="net8", 
