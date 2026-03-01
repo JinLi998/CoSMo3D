@@ -6,16 +6,22 @@
 !images/**
 !model/
 !model/**
+
+# release_module: must un-ignore parent dir first so git can descend
+!release_module/
 !release_module/network/
 !release_module/network/**
-!release_module/decoder/transformers
+!release_module/decoder/
+!release_module/decoder/transformers/
 !release_module/decoder/transformers/**
-!release_module/decoder/utils
-!release_module/decoder/utils/**    
-!release_module/decoder/autoencoders
+!release_module/decoder/utils/
+!release_module/decoder/utils/**
+!release_module/decoder/autoencoders/
 !release_module/decoder/autoencoders/**
 !release_module/decoder/ptstextnet2.py
 
+# app: must un-ignore parent dir first
+!app/
 !app/segment/
 !app/segment/**
 
