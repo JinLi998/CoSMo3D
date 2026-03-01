@@ -353,7 +353,7 @@ class PointCloudTextCanoncolorWodecoderTransformer(BaseModule):
                 point_features: torch.FloatTensor,
                 text_features: torch.FloatTensor,
                 offset: torch.LongTensor,
-                mask_offset: torch.LongTensor) -> tuple[torch.FloatTensor, torch.FloatTensor, torch.LongTensor, torch.LongTensor, torch.FloatTensor, torch.LongTensor]:
+                mask_offset: torch.LongTensor):
         if self.cfg.use_checkpoint and self.training:
             return self._forward(point_cloud, point_features, text_features, offset, mask_offset)
         else:
