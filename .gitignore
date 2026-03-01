@@ -6,6 +6,8 @@
 !images/**
 !model/
 !model/**
+!common/
+!common/**
 
 # release_module: must un-ignore parent dir first so git can descend
 !release_module/
