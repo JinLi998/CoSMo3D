@@ -12,6 +12,37 @@ Open-world promptable 3D semantic segmentation remains brittle as semantics are 
 
 ---
 
+## Environment
+
+- **CUDA 12.2**:  
+  `conda create --name cosmo3d --file environment.txt`
+- **Other CUDA versions**:  
+  `conda env create -f environment.yml`
+
+Then activate the environment: `conda activate cosmo3d`.
+
+---
+
+## Pretrained Model
+
+Download the pretrained CoSMo3D model and save it locally:
+
+- **Download**: [ours_final.pth](https://huggingface.co/PrinterLi/CoSMo3D/blob/main/ours_final.pth) (Hugging Face)
+- **Save to**: `dataset/checkpoints/ours_final.pth`
+
+Create the directory if needed: `mkdir -p dataset/checkpoints`, then place the downloaded file there.
+
+---
+
+## Quick Example
+
+1. Create a `results` folder:  
+   `mkdir results`
+2. Run the single-sample evaluation:  
+   `python -m app.segment.eval_benchmark`
+
+---
+
 ## Todo List
 
 - [ ] Release example test & training models

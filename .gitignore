@@ -31,3 +31,6 @@
 # data_test: must un-ignore parent dir first
 !data_test/
 !data_test/**
+
+!environment.txt
+!environment.yml
