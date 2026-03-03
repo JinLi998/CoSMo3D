@@ -2,7 +2,7 @@
 
 **CVPR 2026 — Full Score**
 
-**Paper**: [arXiv](https://arxiv.org/submit/7315250/view)
+**Paper**: [arXiv](https://arxiv.org/pdf/2603.01205)
 
 ![Teaser](images/teaser.png)
 
