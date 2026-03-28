@@ -21,6 +21,13 @@
 !release_module/decoder/autoencoders/
 !release_module/decoder/autoencoders/**
 !release_module/decoder/ptstextnet2.py
+!release_module/training/
+!release_module/training/**
+!release_module/training/loss_bbox.py
+!release_module/training/loss_canonical_color.py
+!release_module/training/data_release.py
+
+
 
 # app: must un-ignore parent dir first
 !app/
@@ -34,3 +41,10 @@
 
 !environment.txt
 !environment.yml
+
+!eval_benchmark/
+!eval_benchmark/**
+
+
+!train_code/
+!train_code/**
