@@ -1,5 +1,14 @@
 # CoSMo3D: Open-World Promptable 3D Semantic Segmentation through LLM-Guided Canonical Spatial Modeling
 
+## Todo List
+
+- [x] Release example test path and pretrained checkpoint ([Quick Example](#quick-example), [ours_final.pth](https://huggingface.co/PrinterLi/CoSMo3D/blob/main/ours_final.pth))
+- [x] Release benchmark test data (HF) and evaluation code (`eval_benchmark/`)
+- [x] Release training code and training data (`train_code/`, `release_module/training/`, [trainingdata.tar.gz](https://huggingface.co/PrinterLi/CoSMo3D/blob/main/trainingdata.tar.gz))
+- [ ] Release canonical / normalized meshes in a standard format for paper-quality figures
+
+---
+
 **CVPR 2026 — Full Score**
 
 **Paper**: [arXiv](https://arxiv.org/pdf/2603.01205)
@@ -36,6 +45,15 @@ Create the directory if needed: `mkdir -p dataset/checkpoints`, then place the d
 
 ---
 
+## Quick Example
+
+1. Create a `results` folder:  
+   `mkdir results`
+2. Run the single-sample evaluation:  
+   `python -m app.segment.eval_benchmark`
+
+---
+
 ## Datasets (download)
 
 Place archives under `dataset/` and extract there so paths match the defaults used by `eval_benchmark` and `train_code`.
@@ -46,8 +64,21 @@ Place archives under `dataset/` and extract there so paths match the defaults us
 | --- | --- | --- |
 | 3DCompat200 test | [test_3dcompat200.tar.gz](https://huggingface.co/PrinterLi/CoSMo3D/resolve/main/test_3dcompat200.tar.gz) | `dataset/test_3dcompat200/` |
 | ShapeNetPart test | [test_shapenetpart.tar.gz](https://huggingface.co/PrinterLi/CoSMo3D/resolve/main/test_shapenetpart.tar.gz) | `dataset/test_shapenetpart/` |
+| PartNetE test | [data/test.zip](https://huggingface.co/datasets/minghua/PartSLIP/resolve/main/data/test.zip) (~9.4 GB, from PartSLIP) | `dataset/partnet/test/` after unzip |
+| PartNetE metadata | [PartNetE_meta.json](https://huggingface.co/datasets/minghua/PartSLIP/resolve/main/PartNetE_meta.json) | `dataset/partnet/PartNetE_meta.json` |
+
+PartNetE files are hosted in the [minghua/PartSLIP](https://huggingface.co/datasets/minghua/PartSLIP/tree/main/data) dataset ([`data/` folder](https://huggingface.co/datasets/minghua/PartSLIP/tree/main/data)). Download `test.zip` and place `PartNetE_meta.json` in the **same** root as the unzipped `test/` directory so the layout is `dataset/partnet/test/<Category>/...` and `dataset/partnet/PartNetE_meta.json` (matches `EvalPartNetE` in `model/data/data.py`). Metadata file page: [PartNetE_meta.json](https://huggingface.co/datasets/minghua/PartSLIP/blob/main/PartNetE_meta.json).
 
 Example (Linux / macOS; from repo root):
+
+```bash
+mkdir -p dataset/partnet
+cd dataset/partnet
+curl -L -O https://huggingface.co/datasets/minghua/PartSLIP/resolve/main/data/test.zip
+curl -L -O https://huggingface.co/datasets/minghua/PartSLIP/resolve/main/PartNetE_meta.json
+unzip -q test.zip   # should produce test/ with per-category subfolders
+cd ../..
+```
 
 ```bash
 mkdir -p dataset
@@ -59,9 +90,7 @@ tar -xzf test_shapenetpart.tar.gz
 cd ..
 ```
 
-If the tarball contains a single top-level folder, rename or move it so the eval script sees `dataset/test_3dcompat200` and `dataset/test_shapenetpart` as roots. **3DCompat200** evaluation expects splits `seenclass`, `unseen`, and `shapenetpart` under that root (see `EvalData3D` in `model/data/data.py`). **ShapeNetPart** expects `*test*.h5` files directly under `dataset/test_shapenetpart` (or set `--data_root` accordingly).
-
-**PartNetE** is not included in the archives above. Prepare it under `dataset/partnet` following `model/evaluation/benchmark/README.md` (`test/` plus `PartNetE_meta.json`). The release eval defaults to `--data_root dataset/partnet` for the partnet benchmark.
+If the tarball contains a single top-level folder, rename or move it so the eval script sees `dataset/test_3dcompat200` and `dataset/test_shapenetpart` as roots. **3DCompat200** evaluation expects splits `seenclass`, `unseen`, and `shapenetpart` under that root (see `EvalData3D` in `model/data/data.py`). **ShapeNetPart** expects `*test*.h5` files directly under `dataset/test_shapenetpart` (or set `--data_root` accordingly). For reproducible random rotations on PartNetE, see `model/evaluation/benchmark/README.md` and `model/evaluation/benchmark/benchmark_reproducibility/partnete/`.
 
 ### Training data (Hugging Face)
 
@@ -69,7 +98,7 @@ If the tarball contains a single top-level folder, rename or move it so the eval
 | --- | --- | --- |
 | Training pack | [trainingdata.tar.gz](https://huggingface.co/PrinterLi/CoSMo3D/resolve/main/trainingdata.tar.gz) (~2.28 GB) | `dataset/trainingdata/` |
 
-File pages on Hugging Face (same files): [test_3dcompat200.tar.gz](https://huggingface.co/PrinterLi/CoSMo3D/blob/main/test_3dcompat200.tar.gz), [test_shapenetpart.tar.gz](https://huggingface.co/PrinterLi/CoSMo3D/blob/main/test_shapenetpart.tar.gz), [trainingdata.tar.gz](https://huggingface.co/PrinterLi/CoSMo3D/blob/main/trainingdata.tar.gz).
+File pages on Hugging Face (browser): CoSMo3D [test_3dcompat200.tar.gz](https://huggingface.co/PrinterLi/CoSMo3D/blob/main/test_3dcompat200.tar.gz), [test_shapenetpart.tar.gz](https://huggingface.co/PrinterLi/CoSMo3D/blob/main/test_shapenetpart.tar.gz), [trainingdata.tar.gz](https://huggingface.co/PrinterLi/CoSMo3D/blob/main/trainingdata.tar.gz); PartSLIP [data/test.zip](https://huggingface.co/datasets/minghua/PartSLIP/blob/main/data/test.zip), [PartNetE_meta.json](https://huggingface.co/datasets/minghua/PartSLIP/blob/main/PartNetE_meta.json).
 
 Example:
 
@@ -82,15 +111,6 @@ cd ..
 ```
 
 Point `train_code.train_release` at the folder that contains `train.txt` (often `dataset/trainingdata` after extraction). If the archive uses another top-level name, pass that path to `--data_root`.
-
----
-
-## Quick Example
-
-1. Create a `results` folder:  
-   `mkdir results`
-2. Run the single-sample evaluation:  
-   `python -m app.segment.eval_benchmark`
 
 ---
 
@@ -158,11 +178,3 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 python -m train_code.train_release --data_root data
 - `--num_workers`, `--save_every`, `--log_every`, `--ddp_port`: DataLoader workers, checkpoint interval, log interval, and DDP port.
 
 Training data and loss helpers live under `release_module/training/` (`data_release.py`, `loss_canonical_color.py`, `loss_bbox.py`).
-
----
-
-## Todo List
-
-- [ ] Release example test & training models
-- [ ] Release all test datasets and corresponding test code
-- [ ] Release training code and training datasets
