@@ -10,13 +10,13 @@ Supported benchmarks and default dataset roots (under `dataset/` after HF downlo
 import argparse
 import os
 import time
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from model.data.data import EvalData3D, EvalPartNetE, EvalShapeNetPart, collate_fn
+from model.data.data import Eval3dcom, EvalPartNetE, EvalShapeNetPart, collate_fn
 from model.evaluation.core import compute_3d_iou_upsample
 from model.evaluation.utils import load_model, set_seed
 
@@ -94,6 +94,15 @@ DEFAULT_DATA_ROOTS = {
     "shapenetpart": "dataset/test_shapenetpart",
 }
 
+BENCHMARK_ALIASES = {
+    "3dcompat200": "3dcompat200",
+    "d3compat": "3dcompat200",
+    "partnet": "partnet",
+    "partnete": "partnet",
+    "shapenetpart": "shapenetpart",
+    "shapnetpart": "shapenetpart",
+}
+
 
 def evaluate_loader(
     model: torch.nn.Module,
@@ -148,22 +157,48 @@ def _build_loader(dataset) -> DataLoader:
 def evaluate_3dcompat200(
     model: torch.nn.Module,
     data_root: str,
-    split: str,
+    split: Optional[str],
+    apply_rotation: bool,
     decorated: bool,
     use_tuned_prompt: bool,
+    d3com_datatype: str,
 ) -> None:
-    dataset = EvalData3D(
-        split=split,
-        root=data_root,
-        decorated=decorated,
-        use_tuned_prompt=use_tuned_prompt,
-        visualization=False,
-    )
-    loader = _build_loader(dataset)
-    start = time.time()
-    miou = evaluate_loader(model, loader, panoptic=False, n_chunks=1)
-    elapsed = time.time() - start
-    print(f"\n[3dcompat200/{split}] mIoU: {miou:.4f} | time: {elapsed:.2f}s")
+    del split, use_tuned_prompt  # kept for CLI compatibility
+    categories = sorted([x for x in os.listdir(data_root) if os.path.isdir(os.path.join(data_root, x))])
+    if not categories:
+        raise ValueError(f"No category folders found under '{data_root}' for 3dcompat200 evaluation.")
+
+    rows: List[Tuple[str, float]] = []
+    durations: List[float] = []
+    for category in categories:
+        dataset = Eval3dcom(
+            data_root=data_root,
+            category=category,
+            datatype=d3com_datatype,
+            apply_rotation=apply_rotation,
+            decorated=decorated,
+        )
+        if len(dataset) == 0:
+            continue
+
+        loader = _build_loader(dataset)
+        start = time.time()
+        # Align with pipes_eval/d3compat evaluation.
+        miou = evaluate_loader(model, loader, panoptic=False, n_chunks=20)
+        elapsed = time.time() - start
+        rows.append((category, miou))
+        durations.append(elapsed)
+        print(f"[3dcompat200/{d3com_datatype}/{category}] mIoU: {miou:.4f} | time: {elapsed:.2f}s")
+
+    if not rows:
+        raise ValueError(
+            f"No instances matched datatype='{d3com_datatype}'. "
+            "Expected instance names containing 'coarse' or 'fine' under each category."
+        )
+
+    avg_miou = float(np.mean([x[1] for x in rows]))
+    total_time = float(np.sum(durations))
+    print(f"\n[3dcompat200/{d3com_datatype}] average mIoU: {avg_miou:.4f} | total time: {total_time:.2f}s")
 
 
 def evaluate_partnet(
@@ -256,8 +291,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--benchmark",
         required=True,
-        choices=["3dcompat200", "partnet", "shapenetpart"],
-        help="Benchmark to evaluate.",
+        type=str,
+        help="Benchmark to evaluate (3dcompat200/d3compat, partnet/partnete, shapenetpart/shapnetpart).",
     )
     parser.add_argument(
         "--checkpoint_path",
@@ -276,14 +311,25 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--split",
-        default="seenclass",
-        choices=["seenclass", "unseen", "shapenetpart"],
-        help="Split for 3dcompat200 benchmark.",
+        default=None,
+        help="Optional split name for legacy Objaverse-style layout (seenclass/unseen/shapenetpart).",
+    )
+    parser.add_argument(
+        "--d3com_datatype",
+        default="coarse",
+        choices=["coarse", "fine"],
+        help="3DCompat subset, aligned with pipes_eval/eval_d3compat.sh.",
     )
     parser.add_argument(
         "--rotate",
         action="store_true",
         help="Apply predefined random rotations for partnet/shapenetpart.",
+    )
+    parser.add_argument(
+        "--canonical",
+        action="store_false",
+        dest="rotate",
+        help="Compatibility flag from pipes_eval. Keeps canonical orientation (no random rotation).",
     )
     parser.add_argument(
         "--subset",
@@ -296,6 +342,11 @@ def parse_args() -> argparse.Namespace:
         help="Use plain part prompts instead of 'part of a object'.",
     )
     parser.add_argument(
+        "--part_query",
+        action="store_true",
+        help="Compatibility flag from pipes_eval. Use plain part names as prompts.",
+    )
+    parser.add_argument(
         "--use_shapenetpart_topk_prompt",
         action="store_true",
         help="Use tuned prompts for shapenetpart settings.",
@@ -306,24 +357,35 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     set_seed(123)
     args = parse_args()
-    data_root = args.data_root or DEFAULT_DATA_ROOTS[args.benchmark]
-    decorated = not args.plain_prompt
+    benchmark_key = BENCHMARK_ALIASES.get(args.benchmark.lower())
+    if benchmark_key is None:
+        valid = ", ".join(sorted(BENCHMARK_ALIASES.keys()))
+        raise ValueError(f"Unsupported benchmark '{args.benchmark}'. Supported values: {valid}")
 
-    print(f"Benchmark: {args.benchmark}")
+    if args.data_root:
+        data_root = args.data_root
+    else:
+        data_root = DEFAULT_DATA_ROOTS[benchmark_key]
+
+    decorated = not (args.plain_prompt or args.part_query)
+
+    print(f"Benchmark: {benchmark_key}")
     print(f"Data root: {data_root}")
     print(f"Checkpoint: {args.checkpoint_path}")
 
     model = load_model(args.checkpoint_path)
 
-    if args.benchmark == "3dcompat200":
+    if benchmark_key == "3dcompat200":
         evaluate_3dcompat200(
             model=model,
             data_root=data_root,
             split=args.split,
+            apply_rotation=args.rotate,
             decorated=decorated,
             use_tuned_prompt=args.use_shapenetpart_topk_prompt,
+            d3com_datatype=args.d3com_datatype,
         )
-    elif args.benchmark == "partnet":
+    elif benchmark_key == "partnet":
         evaluate_partnet(
             model=model,
             data_root=data_root,

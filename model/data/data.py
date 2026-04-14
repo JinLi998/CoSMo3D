@@ -163,6 +163,117 @@ class TrainingData(Dataset):
         return len(self.obj_path_list)
 
 
+def get_part_labels(pts_xyz, mask_pts):
+    mask_int = mask_pts.to(torch.int32)
+    num_activated = mask_int.sum(dim=0)
+
+    labels = torch.full((5000,), -1, dtype=torch.long)
+
+    valid_mask = num_activated == 1
+    if valid_mask.any():
+        valid_mask_slice = mask_int[:, valid_mask].to(torch.int32)
+        valid_indices = torch.argmax(valid_mask_slice, dim=0)
+        labels[valid_mask] = valid_indices
+
+    return labels
+
+
+class Eval3dcom(Dataset):
+    def __init__(self, data_root, category, textembeds=None, datatype=None,
+                 apply_rotation=False, decorated=True):
+
+        self.category = category
+        self.apply_rotation = apply_rotation
+        self.decorated = decorated
+        ids = sorted(os.listdir(f"{data_root}/{category}"))
+
+        if datatype == 'coarse':
+            ids = [id for id in ids if "coarse" in id]
+            print('using coarse 2 test:', ids)
+        elif datatype == 'fine':
+            ids = [id for id in ids if "fine" in id]
+            print('using fine 2 test:', ids)
+
+        self.obj_path_list = [os.path.join(f"{data_root}/{category}/{id}") for id in ids]
+        self.textembeds = textembeds
+
+       
+        self.model = AutoModel.from_pretrained("google/siglip-base-patch16-224")
+        self.tokenizer = AutoTokenizer.from_pretrained("google/siglip-base-patch16-224")
+
+        all_rotation = torch.load("model/evaluation/benchmark/benchmark_reproducibility/shapenetpart/random_rotation_test.pt")
+        self.all_rotation = all_rotation
+
+   
+    def get_random_rotation(self, indice):
+        N = self.all_rotation.shape[0]
+        D = self.all_rotation.shape[1]
+
+        if isinstance(indice, torch.Tensor):
+            assert indice.dim() == 0
+            indice_val = indice.item()
+        else:
+            assert isinstance(indice, int)
+            indice_val = indice
+
+        seed = (indice_val % (2**32 - 1) + 1000)
+        cpu_rng = torch.Generator(device='cpu')
+        cpu_rng.manual_seed(seed)
+        sampled_idx = torch.randint(low=0, high=N, size=(1,), generator=cpu_rng)
+        sampled_idx = sampled_idx.to(self.all_rotation.device)
+
+        sampled_rot = self.all_rotation[sampled_idx, :].squeeze(0)
+        return sampled_rot
+
+    def mean_pooling(self, model_output, attention_mask):
+        token_embeddings = model_output[0]
+        input_mask = attention_mask.unsqueeze(-1).expand(token_embeddings.size())
+        return torch.sum(token_embeddings * input_mask, 1) / torch.clamp(input_mask.sum(1), min=1e-9)
+
+    def __getitem__(self, item):
+        return_dict = {}
+        data_dir = self.obj_path_list[item]
+        rot = self.get_random_rotation(item)
+
+        with open(f"{data_dir}/mask_labels.txt", "r") as f:
+            labels = f.read().splitlines()
+
+        mask_pts = torch.load(f"{data_dir}/mask2points.pt").cpu()
+        pts_xyz = torch.load(f"{data_dir}/points.pt").cpu()
+        normal = torch.load(f"{data_dir}/normals.pt").cpu()
+        pts_rgb = torch.load(f"{data_dir}/rgb.pt").cpu() * 255
+        gt = get_part_labels(pts_xyz, mask_pts)
+        gt = gt + 1
+
+        if self.apply_rotation:
+            pts_xyz = rotate_pts(pts_xyz, rot)
+            normal = rotate_pts(normal, rot)
+
+        cate = self.category
+        if "_" in cate:
+            cate = cate.replace("_", " ")
+
+        return_dict = prep_points_val3d(pts_xyz, pts_rgb, normal, gt, pts_xyz, gt)
+
+        if 1:
+            if self.decorated:
+                labels = [f"{part} of a {self.category}" for part in labels]
+
+            inputs = self.tokenizer(labels, padding="max_length", truncation=True, return_tensors="pt")
+            with torch.no_grad():
+                text_feat = self.model.get_text_features(** inputs)
+
+            text_feat = text_feat / (text_feat.norm(dim=-1, keepdim=True) + 1e-12)
+
+        return_dict['label_embeds'] = text_feat
+        return_dict['class_name'] = self.category
+        return_dict["xyz_visualization"] = torch.tensor(np.asarray(pts_xyz)).float()
+
+        return return_dict
+
+    def __len__(self):
+        return len(self.obj_path_list)
+
 class EvalData(Dataset):
     def __init__(self, data_root, split):
         assert split in ["val", "test", "train"]

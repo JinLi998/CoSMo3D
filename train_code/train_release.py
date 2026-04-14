@@ -10,7 +10,7 @@ This script is a cleaned version based on pipes/ours_canon_align_bbox:
 import argparse
 import os
 import random
-from typing import Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 import torch
@@ -52,14 +52,8 @@ def create_train_loader(
     batch_size: int,
     num_workers: int,
     use_ddp: bool,
-    category_alignment_json: str,
-    shape_category_json: str,
-) -> Tuple[DataLoader, DistributedSampler]:
-    dataset = TrainingData(
-        data_root=data_root,
-        category_alignment_json=category_alignment_json,
-        shape_category_json=shape_category_json,
-    )
+) -> Tuple[DataLoader, Optional[DistributedSampler]]:
+    dataset = TrainingData(data_root=data_root)
     sampler = DistributedSampler(dataset, shuffle=True) if use_ddp else None
     loader = DataLoader(
         dataset,
@@ -131,8 +125,6 @@ def train_worker(rank: int, world_size: int, args: argparse.Namespace) -> None:
             batch_size=args.batch_size,
             num_workers=args.num_workers,
             use_ddp=use_ddp,
-            category_alignment_json=args.category_alignment_json,
-            shape_category_json=args.shape_category_json,
         )
 
         optimizer = optim.Adam(model.parameters(), lr=args.lr)
@@ -270,18 +262,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lr", default=5e-4, type=float, help="Initial learning rate")
     parser.add_argument("--eta_min", default=5e-5, type=float, help="Cosine scheduler minimum lr")
     parser.add_argument("--num_workers", default=4, type=int, help="DataLoader workers per process")
-    parser.add_argument(
-        "--category_alignment_json",
-        default=None,
-        type=str,
-        help="Optional category-to-rotation mapping JSON path.",
-    )
-    parser.add_argument(
-        "--shape_category_json",
-        default=None,
-        type=str,
-        help="Optional object-to-category mapping JSON path.",
-    )
 
     parser.add_argument("--canoncolor_loss_weight", default=0.2, type=float, help="Weight for canonical color loss")
     parser.add_argument("--bbox_loss_weight", default=5.0, type=float, help="Weight for bbox loss")

@@ -4,12 +4,13 @@ Release dataset utilities for training.
 This module contains only what is required by train_release.py:
 - TrainingData
 - collate_fn
+
+Training samples are expected to be already posed in the canonical / normalized frame
+distributed in the released training pack; no extra rotation alignment is applied here.
 """
 
-import json
 import os
 from collections.abc import Mapping, Sequence
-from typing import Optional
 
 import numpy as np
 import torch
@@ -32,10 +33,6 @@ from model.data.augmentation import (
     RandomScale,
     ToTensor,
 )
-
-
-def _rotate_point_cloud(points: torch.Tensor, matrix: torch.Tensor) -> torch.Tensor:
-    return torch.matmul(points, matrix.T)
 
 
 def _normalize_to_rgb(points: torch.Tensor) -> torch.Tensor:
@@ -121,44 +118,15 @@ def collate_fn(batch):
 
 
 class TrainingData(Dataset):
-    def __init__(
-        self,
-        data_root: str,
-        category_alignment_json: Optional[str] = None,
-        shape_category_json: Optional[str] = None,
-    ):
+    """Loads samples listed in ``{data_root}/train.txt`` (canonical-frame training pack)."""
+
+    def __init__(self, data_root: str):
         self.data_root = data_root
         with open(f"{data_root}/train.txt", "r", encoding="utf-8") as f:
             self.obj_path_list = f.read().splitlines()
 
         self.model = AutoModel.from_pretrained("google/siglip-base-patch16-224")
         self.tokenizer = AutoTokenizer.from_pretrained("google/siglip-base-patch16-224")
-
-        self.cate_rots_dict = None
-        self.shape2cates_dict = None
-        # if category_alignment_json and shape_category_json and os.path.exists(category_alignment_json) and os.path.exists(shape_category_json):
-        #     with open(category_alignment_json, "r", encoding="utf-8") as f:
-        #         self.cate_rots_dict = json.load(f)
-        #     with open(shape_category_json, "r", encoding="utf-8") as f:
-        #         self.shape2cates_dict = json.load(f)
-
-    # def _try_apply_category_alignment(self, data_dir: str, pts_xyz: torch.Tensor, normal: torch.Tensor):
-    #     if self.cate_rots_dict is None or self.shape2cates_dict is None:
-    #         return pts_xyz, normal
-
-    #     obj_id = os.path.basename(os.path.normpath(data_dir))
-    #     cate = self.shape2cates_dict.get(obj_id)
-    #     if cate is None:
-    #         cate = self.shape2cates_dict.get(data_dir)
-    #     if cate is None:
-    #         return pts_xyz, normal
-
-    #     cate = cate.replace("_", " ")
-    #     rot = self.cate_rots_dict.get(cate)
-    #     if rot is None:
-    #         return pts_xyz, normal
-    #     rot = torch.tensor(rot, dtype=pts_xyz.dtype)
-    #     return _rotate_point_cloud(pts_xyz, rot), _rotate_point_cloud(normal, rot)
 
     def __getitem__(self, item):
         data_dir = self.obj_path_list[item]
@@ -170,7 +138,6 @@ class TrainingData(Dataset):
         normal = torch.load(f"{data_dir}/normals.pt", map_location="cpu")
         pts_rgb = torch.load(f"{data_dir}/rgb.pt", map_location="cpu") * 255
 
-        # pts_xyz, normal = self._try_apply_category_alignment(data_dir, pts_xyz, normal)
         canonical_color = _normalize_to_rgb(pts_xyz)
 
         point_dict = prep_points_train(
