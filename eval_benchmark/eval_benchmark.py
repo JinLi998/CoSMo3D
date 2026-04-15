@@ -373,7 +373,10 @@ def main() -> None:
     print(f"Data root: {data_root}")
     print(f"Checkpoint: {args.checkpoint_path}")
 
-    model = load_model(args.checkpoint_path)
+    torch.manual_seed(123)
+    from release_module.network.canoncolor_bbox_pre import PointSemSegWithDecoder
+    model = PointSemSegWithDecoder(args=args)
+    model.load_state_dict(torch.load(args.checkpoint_path)["model_state_dict"], strict=True)
 
     if benchmark_key == "3dcompat200":
         evaluate_3dcompat200(
