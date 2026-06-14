@@ -5,6 +5,7 @@
 - [x] Release example test path and pretrained checkpoint ([Quick Example](#quick-example), [ours_final.pth](https://huggingface.co/PrinterLi/CoSMo3D/blob/main/ours_final.pth))
 - [x] Release benchmark test data (HF) and evaluation code (`eval_benchmark/`)
 - [x] Release training code and training data (`train_code/`, `release_module/training/`, [trainingdata.tar.gz](https://huggingface.co/PrinterLi/CoSMo3D/blob/main/trainingdata.tar.gz))
+- [x] Release segmentation visualization code (`vis_code/`, [Visualization](#visualization))
 - [ ] Release canonical / normalized meshes in a standard format for paper-quality figures
 
 ---
@@ -45,6 +46,67 @@ Create the directory if needed: `mkdir -p dataset/checkpoints`, then place the d
    `mkdir results`
 2. Run the single-sample evaluation:  
    `python -m app.segment.eval_benchmark`
+
+---
+
+## Visualization
+
+Segment a single sample and export a **colored GLB** mesh. Code lives under `vis_code/` (segmentation follows `app/segment/eval_benchmark.py`; mesh coloring follows the point-to-face transfer in our segvis pipeline).
+
+### Prerequisites
+
+1. **Checkpoint**: place [ours_final.pth](https://huggingface.co/PrinterLi/CoSMo3D/blob/main/ours_final.pth) at `dataset/checkpoints/ours_final.pth` (see [Pretrained Model](#pretrained-model)).
+2. **Sample data**: the repo includes a minimal example under `data_test/`:
+   - `data_test/coarse_b'29_0cb'/` — point cloud + `mask_labels.txt`
+   - `data_test/29_0cb.glb` — target mesh for visualization  
+   For other instances, download the corresponding **GLB** meshes from the official [3DCoMPaT200](https://github.com/3DCoMPaT200/3DCoMPaT200) repository.
+3. **Text encoder (offline)**: SigLIP (`google/siglip-base-patch16-224`) should already be in your Hugging Face cache from the first run, or download it once with network access. The script caches `text_feat.pt` per sample directory.
+
+### Quick run (from repo root)
+
+```bash
+mkdir -p results
+conda activate find3d   # or your env with project dependencies
+bash vis_code/run.sh
+```
+
+Or run Python directly:
+
+```bash
+python -m vis_code.seg_and_vis
+```
+
+### Outputs
+
+Results are written to `results/` (default):
+
+| File | Description |
+| --- | --- |
+| `29_0cb_seg.glb` | Colored segmentation mesh (main output) |
+| `29_0cb_seg.txt` | Per-point semantic labels |
+| `29_0cb_face_labels.txt` | Per-face semantic labels |
+| `29_0cb_color_semantic.txt` | Label-to-color mapping |
+
+### Custom sample
+
+```bash
+python -m vis_code.seg_and_vis \
+  --checkpoint_path dataset/checkpoints/ours_final.pth \
+  --data_path "data_test/coarse_b'29_0cb'" \
+  --mesh_path data_test/29_0cb.glb \
+  --output_dir results \
+  --category vase \
+  --sample_name 29_0cb
+```
+
+All paths above are **relative to the project root** (the parent of `vis_code/`). Override only when your layout differs.
+
+Optional flags:
+
+- `--plain_prompt`: use part names only (no `{part} of a {category}` decoration).
+- `--no_mesh_align`: skip the default +90° X-axis rotation before point-to-face label transfer.
+- `--hf_model_path <id_or_path>`: override the SigLIP model id or local snapshot path.
+- `--n_chunks <N>`: chunks for nearest-neighbor upsampling (default `20`).
 
 ---
 

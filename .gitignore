@@ -34,7 +34,6 @@
 !app/segment/
 !app/segment/**
 
-!
 # data_test: must un-ignore parent dir first
 !data_test/
 !data_test/**
@@ -48,3 +47,9 @@
 
 !train_code/
 !train_code/**
+
+!vis_code/
+!vis_code/**
+
+__pycache__/
+*.pyc
